@@ -3,7 +3,7 @@ spring:
     name: kotlin-spring-chat-app
 
   profiles:
-    active: local  # ????? local ???? ??
+    active: local  # 기본적으로 local 프로파일 사용
 
   jpa:
     hibernate:
@@ -22,11 +22,18 @@ spring:
       roles: ADMIN
 
 jwt:
-  secret: mySecretKeyForJWTTokenMustBeLongEnoughForHS512Algorithm
+  secret: mySecretKeyForJWTTokenMustBeLongEnoughForHS512AlgorithmAndShouldBeAtLeast512BitsLongForSecurityPurposes
   expiration: 86400000 # 24 hours
 
 server:
   port: 8080
+  error:
+    include-message: always
+    include-binding-errors: always
+    include-stacktrace: on_param
+    include-exception: true
+    whitelabel:
+      enabled: false
 
 management:
   endpoints:
@@ -36,3 +43,12 @@ management:
   endpoint:
     health:
       show-details: always
+
+logging:
+  level:
+    com.example.kopringCRUD: DEBUG
+    org.springframework.web: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    root: INFO
