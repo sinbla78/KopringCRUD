@@ -6,6 +6,7 @@ import com.example.kopringCRUD.domain.report.entity.ReportType
 import com.example.kopringCRUD.domain.report.repository.ReportRepository
 import com.example.kopringCRUD.global.common.PageRequest
 import com.example.kopringCRUD.global.common.PageResponse
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
@@ -209,14 +210,24 @@ interface JpaReportRepository : JpaRepository<Report, Long> {
     fun countByReportTargetReportedMessageId(messageId: Long): Long
 
     /**
-     * 평균 처리 시간 계산 (시간 단위) - H2 DB 호환
+     * 평균 처리 시간 계산 (H2용)
      */
     @Query("""
         SELECT AVG(DATEDIFF(HOUR, r.createdAt, r.handledAt)) 
         FROM Report r 
         WHERE r.handledAt IS NOT NULL
     """)
-    fun getAverageHandlingTimeInHours(): Double?
+    fun getAverageHandlingTimeInHoursH2(): Double?
+
+    /**
+     * 평균 처리 시간 계산 (MySQL용)
+     */
+    @Query("""
+        SELECT AVG(TIMESTAMPDIFF(HOUR, r.createdAt, r.handledAt)) 
+        FROM Report r 
+        WHERE r.handledAt IS NOT NULL
+    """)
+    fun getAverageHandlingTimeInHoursMySQL(): Double?
 
     /**
      * 처리율 계산
@@ -247,6 +258,9 @@ interface JpaReportRepository : JpaRepository<Report, Long> {
 class ReportRepositoryImpl(
     private val jpaReportRepository: JpaReportRepository
 ) : ReportRepository {
+
+    @Value("\${spring.jpa.database-platform:}")
+    private lateinit var databasePlatform: String
 
     override fun findById(id: Long): Optional<Report> {
         return jpaReportRepository.findById(id)
@@ -472,7 +486,11 @@ class ReportRepositoryImpl(
     }
 
     override fun getAverageHandlingTimeInHours(): Double {
-        return jpaReportRepository.getAverageHandlingTimeInHours() ?: 0.0
+        return if (databasePlatform.contains("H2")) {
+            jpaReportRepository.getAverageHandlingTimeInHoursH2() ?: 0.0
+        } else {
+            jpaReportRepository.getAverageHandlingTimeInHoursMySQL() ?: 0.0
+        }
     }
 
     override fun getHandlingRate(): Double {

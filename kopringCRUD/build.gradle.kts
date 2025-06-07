@@ -33,6 +33,12 @@ dependencies {
 	runtimeOnly("com.h2database:h2")
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
 	testImplementation("org.springframework.security:spring-security-test")
+	// H2 Database (개발/테스트용)
+	runtimeOnly("com.h2database:h2")
+	// MySQL Database (운영용)
+	runtimeOnly("com.mysql:mysql-connector-j")
+	// JPA
+	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 }
 
 tasks.withType<KotlinCompile> {
