@@ -21,6 +21,19 @@ data class UserResponse(
 )
 
 /**
+ * Refresh Token 정보 DTO (활성 기기 목록용)
+ */
+data class RefreshTokenInfo(
+    val id: Long,
+    val deviceInfo: String?,
+    val ipAddress: String?,
+    val createdAt: LocalDateTime,
+    val expiryDate: LocalDateTime,
+    val isCurrentDevice: Boolean = false,
+    val remainingDays: Long = 0
+)
+
+/**
  * 사용자 생성 요청 DTO (회원가입)
  */
 data class CreateUserRequest(
@@ -81,11 +94,39 @@ data class LoginRequest(
 )
 
 /**
- * 인증 응답 DTO
+ * 인증 응답 DTO (Refresh Token 지원)
  */
 data class AuthResponse(
-    val token: String,
-    val user: UserResponse
+    val accessToken: String,
+    val refreshToken: String,
+    val user: UserResponse,
+    val tokenType: String = "Bearer",
+    val expiresIn: Long? = null // Access Token 만료 시간 (초 단위, 선택적)
+)
+
+/**
+ * Refresh Token 요청 DTO
+ */
+data class RefreshTokenRequest(
+    @field:NotBlank(message = "Refresh Token은 필수입니다")
+    val refreshToken: String
+)
+
+/**
+ * 로그아웃 요청 DTO
+ */
+data class LogoutRequest(
+    @field:NotBlank(message = "Refresh Token은 필수입니다")
+    val refreshToken: String
+)
+
+/**
+ * 토큰 검증 응답 DTO
+ */
+data class TokenValidationResponse(
+    val isValid: Boolean,
+    val username: String? = null,
+    val expiresAt: LocalDateTime? = null
 )
 
 /**
@@ -102,4 +143,13 @@ data class SimpleUserResponse(
     val id: Long,
     val username: String,
     val displayName: String?
+)
+
+/**
+ * 현재 사용자 세션 정보 DTO
+ */
+data class UserSessionResponse(
+    val user: UserResponse,
+    val activeTokensCount: Int, // 활성 Refresh Token 개수 (다중 기기 로그인)
+    val lastLoginAt: LocalDateTime?
 )

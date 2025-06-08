@@ -1,219 +1,207 @@
 package com.example.kopringCRUD.presentation.auth
 
-import com.example.kopringCRUD.domain.user.dto.AuthResponse
-import com.example.kopringCRUD.domain.user.dto.CreateUserRequest
-import com.example.kopringCRUD.domain.user.dto.LoginRequest
+import com.example.kopringCRUD.domain.user.dto.*
 import com.example.kopringCRUD.domain.user.service.AuthService
-import com.example.kopringCRUD.global.exception.ErrorResponse
+import com.example.kopringCRUD.domain.user.service.UserService
+import com.example.kopringCRUD.global.common.ApiResponse
+import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.security.core.annotation.AuthenticationPrincipal
+import org.springframework.security.core.userdetails.UserDetails
 import org.springframework.web.bind.annotation.*
 
 /**
  * 인증 관련 REST API 컨트롤러
- * 회원가입, 로그인 기능 제공
+ * 회원가입, 로그인, 토큰 관리 기능 제공
  */
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = ["*"]) // 개발 환경용, 운영에서는 구체적인 도메인 지정
+@CrossOrigin(origins = ["http://localhost:3000", "http://localhost:8080"]) // 개발 환경용
 class AuthController(
-    private val authService: AuthService
+    private val authService: AuthService,
+    private val userService: UserService
 ) {
 
     /**
      * 사용자 회원가입
-     *
-     * @param request 회원가입 정보 (사용자명, 이메일, 비밀번호, 표시명)
-     * @return JWT 토큰과 사용자 정보
      */
     @PostMapping("/register")
-    fun register(@Valid @RequestBody request: CreateUserRequest): ResponseEntity<AuthResponse> {
+    fun register(
+        @Valid @RequestBody request: CreateUserRequest
+    ): ResponseEntity<ApiResponse<AuthResponse>> {
         val response = authService.register(request)
-        return ResponseEntity.status(HttpStatus.CREATED).body(response)
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(ApiResponse.success("회원가입이 완료되었습니다", response))
     }
 
     /**
      * 사용자 로그인
-     *
-     * @param request 로그인 정보 (사용자명, 비밀번호)
-     * @return JWT 토큰과 사용자 정보
      */
     @PostMapping("/login")
-    fun login(@Valid @RequestBody request: LoginRequest): ResponseEntity<AuthResponse> {
+    fun login(
+        @Valid @RequestBody request: LoginRequest
+    ): ResponseEntity<ApiResponse<AuthResponse>> {
         val response = authService.login(request)
-        return ResponseEntity.ok(response)
+
+        return ResponseEntity.ok(
+            ApiResponse.success("로그인이 완료되었습니다", response)
+        )
     }
 
     /**
-     * 토큰 검증 (선택적 기능)
-     *
-     * @param token JWT 토큰 (Authorization 헤더에서 추출)
-     * @return 토큰 유효성 검증 결과
-     */
-    @PostMapping("/validate")
-    fun validateToken(@RequestHeader("Authorization") authHeader: String): ResponseEntity<Map<String, Any>> {
-        try {
-            // "Bearer " 접두사 제거
-            val token = authHeader.removePrefix("Bearer ").trim()
-
-            if (token.isEmpty()) {
-                return ResponseEntity.badRequest().body(
-                    mapOf(
-                        "valid" to false,
-                        "message" to "토큰이 제공되지 않았습니다"
-                    )
-                )
-            }
-
-            val isValid = authService.validateToken(token)
-
-            if (isValid) {
-                val username = authService.getUsernameFromToken(token)
-                return ResponseEntity.ok(
-                    mapOf(
-                        "valid" to true,
-                        "username" to username,
-                        "message" to "유효한 토큰입니다"
-                    )
-                )
-            } else {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
-                    mapOf(
-                        "valid" to false,
-                        "message" to "유효하지 않은 토큰입니다"
-                    )
-                )
-            }
-        } catch (e: Exception) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
-                mapOf(
-                    "valid" to false,
-                    "message" to "토큰 검증 중 오류가 발생했습니다"
-                )
-            )
-        }
-    }
-
-    /**
-     * 토큰 갱신 (선택적 기능)
-     * 기존 유효한 토큰으로 새로운 토큰 발급
-     *
-     * @param authHeader Authorization 헤더의 JWT 토큰
-     * @return 새로운 JWT 토큰과 사용자 정보
+     * Access Token 갱신
      */
     @PostMapping("/refresh")
-    fun refreshToken(@RequestHeader("Authorization") authHeader: String): ResponseEntity<AuthResponse> {
-        val token = authHeader.removePrefix("Bearer ").trim()
+    fun refreshToken(
+        @Valid @RequestBody request: RefreshTokenRequest
+    ): ResponseEntity<ApiResponse<AuthResponse>> {
+        val response = authService.refreshAccessToken(request)
 
-        if (token.isEmpty()) {
-            throw IllegalArgumentException("토큰이 제공되지 않았습니다")
-        }
-
-        val response = authService.refreshToken(token)
-        return ResponseEntity.ok(response)
+        return ResponseEntity.ok(
+            ApiResponse.success("토큰이 갱신되었습니다", response)
+        )
     }
 
     /**
-     * 로그아웃 (클라이언트 측에서 토큰 삭제)
-     * JWT는 stateless하므로 서버에서 별도 처리 불필요
-     * 클라이언트에게 토큰 삭제 안내 메시지만 반환
-     *
-     * @return 로그아웃 완료 메시지
+     * 로그아웃 (특정 기기)
      */
     @PostMapping("/logout")
-    fun logout(): ResponseEntity<Map<String, String>> {
+    fun logout(
+        @Valid @RequestBody request: LogoutRequest
+    ): ResponseEntity<ApiResponse<Unit>> {
+        authService.logout(request.refreshToken)
+
         return ResponseEntity.ok(
-            mapOf(
-                "message" to "로그아웃되었습니다. 클라이언트에서 토큰을 삭제해주세요.",
-                "instruction" to "localStorage.removeItem('token') 또는 sessionStorage.removeItem('token')을 실행하세요."
-            )
+            ApiResponse.success("로그아웃되었습니다")
         )
     }
 
     /**
-     * 인증 상태 확인
-     * 현재 로그인한 사용자의 정보 반환 (토큰 기반)
-     *
-     * @param authHeader Authorization 헤더의 JWT 토큰
-     * @return 현재 사용자 정보 (토큰 없이)
+     * 모든 기기에서 로그아웃
+     */
+    @PostMapping("/logout-all")
+    fun logoutFromAllDevices(
+        @AuthenticationPrincipal userDetails: UserDetails
+    ): ResponseEntity<ApiResponse<Unit>> {
+        val user = userService.findByUsername(userDetails.username)
+        authService.logoutFromAllDevices(user.id!!)
+
+        return ResponseEntity.ok(
+            ApiResponse.success("모든 기기에서 로그아웃되었습니다")
+        )
+    }
+
+    /**
+     * Access Token 검증
+     */
+    @PostMapping("/validate")
+    fun validateToken(
+        @RequestHeader("Authorization") authHeader: String
+    ): ResponseEntity<ApiResponse<TokenValidationResponse>> {
+        val token = extractTokenFromHeader(authHeader)
+
+        val isValid = authService.validateAccessToken(token)
+        val response = if (isValid) {
+            val username = authService.getUsernameFromToken(token)
+            TokenValidationResponse(
+                isValid = true,
+                username = username
+            )
+        } else {
+            TokenValidationResponse(isValid = false)
+        }
+
+        return ResponseEntity.ok(
+            ApiResponse.success("토큰 검증이 완료되었습니다", response)
+        )
+    }
+
+    /**
+     * 현재 사용자 정보 조회
      */
     @GetMapping("/me")
-    fun getCurrentUser(@RequestHeader("Authorization") authHeader: String): ResponseEntity<AuthResponse> {
-        val token = authHeader.removePrefix("Bearer ").trim()
+    fun getCurrentUser(
+        @AuthenticationPrincipal userDetails: UserDetails
+    ): ResponseEntity<ApiResponse<AuthResponse>> {
+        val response = authService.getCurrentUser(userDetails.username)
 
-        if (token.isEmpty()) {
-            throw IllegalArgumentException("토큰이 제공되지 않았습니다")
-        }
-
-        if (!authService.validateToken(token)) {
-            throw IllegalArgumentException("유효하지 않은 토큰입니다")
-        }
-
-        val username = authService.getUsernameFromToken(token)
-        val response = authService.getCurrentUser(username)
-
-        return ResponseEntity.ok(response)
-    }
-
-    /**
-     * API 상태 확인 (헬스체크)
-     * 인증 API가 정상 동작하는지 확인
-     *
-     * @return API 상태 정보
-     */
-    @GetMapping("/health")
-    fun healthCheck(): ResponseEntity<Map<String, Any>> {
         return ResponseEntity.ok(
-            mapOf(
-                "status" to "UP",
-                "service" to "Authentication API",
-                "timestamp" to System.currentTimeMillis(),
-                "endpoints" to listOf(
-                    mapOf("method" to "POST", "path" to "/api/auth/register", "description" to "회원가입"),
-                    mapOf("method" to "POST", "path" to "/api/auth/login", "description" to "로그인"),
-                    mapOf("method" to "POST", "path" to "/api/auth/validate", "description" to "토큰 검증"),
-                    mapOf("method" to "POST", "path" to "/api/auth/refresh", "description" to "토큰 갱신"),
-                    mapOf("method" to "POST", "path" to "/api/auth/logout", "description" to "로그아웃"),
-                    mapOf("method" to "GET", "path" to "/api/auth/me", "description" to "현재 사용자 정보")
-                )
-            )
+            ApiResponse.success("사용자 정보를 조회했습니다", response)
         )
     }
 
     /**
-     * 회원가입 가능 여부 확인
-     * 사용자명과 이메일 중복 체크
-     *
-     * @param username 확인할 사용자명 (선택적)
-     * @param email 확인할 이메일 (선택적)
-     * @return 사용 가능 여부
+     * 사용자명/이메일 중복 확인
      */
     @GetMapping("/check-availability")
     fun checkAvailability(
         @RequestParam(required = false) username: String?,
         @RequestParam(required = false) email: String?
-    ): ResponseEntity<Map<String, Any>> {
+    ): ResponseEntity<ApiResponse<Map<String, Any>>> {
         val result = mutableMapOf<String, Any>()
 
-        if (username != null) {
-            // UserService에서 중복 체크 로직이 있다면 사용
-            // 현재는 간단한 예시로 항상 사용 가능으로 반환
-            result["usernameAvailable"] = true
-            result["usernameMessage"] = "사용 가능한 사용자명입니다"
+        username?.let {
+            // 임시로 항상 사용 가능으로 설정 (UserService에 메서드가 없는 경우)
+            val isAvailable = true // userService.existsByUsername(it) 메서드가 있다면 !userService.existsByUsername(it)
+            result["usernameAvailable"] = isAvailable
+            result["usernameMessage"] = if (isAvailable) "사용 가능한 사용자명입니다" else "이미 사용 중인 사용자명입니다"
         }
 
-        if (email != null) {
-            // UserService에서 중복 체크 로직이 있다면 사용
-            result["emailAvailable"] = true
-            result["emailMessage"] = "사용 가능한 이메일입니다"
+        email?.let {
+            // 임시로 항상 사용 가능으로 설정 (UserService에 메서드가 없는 경우)
+            val isAvailable = true // userService.existsByEmail(it) 메서드가 있다면 !userService.existsByEmail(it)
+            result["emailAvailable"] = isAvailable
+            result["emailMessage"] = if (isAvailable) "사용 가능한 이메일입니다" else "이미 사용 중인 이메일입니다"
         }
 
         if (username == null && email == null) {
-            result["error"] = "확인할 사용자명 또는 이메일을 제공해주세요"
-            return ResponseEntity.badRequest().body(result)
+            return ResponseEntity.badRequest()
+                .body(ApiResponse.error("확인할 사용자명 또는 이메일을 제공해주세요"))
         }
 
-        return ResponseEntity.ok(result)
+        return ResponseEntity.ok(
+            ApiResponse.success("중복 확인이 완료되었습니다", result)
+        )
+    }
+
+    /**
+     * API 상태 확인 (헬스체크)
+     */
+    @GetMapping("/health")
+    fun healthCheck(): ResponseEntity<ApiResponse<Map<String, Any>>> {
+        val healthInfo = mapOf(
+            "status" to "UP",
+            "service" to "Authentication API",
+            "timestamp" to System.currentTimeMillis(),
+            "version" to "1.0.0",
+            "features" to listOf("refresh-token", "jwt-auth"),
+            "endpoints" to listOf(
+                mapOf("method" to "POST", "path" to "/api/auth/register", "description" to "회원가입"),
+                mapOf("method" to "POST", "path" to "/api/auth/login", "description" to "로그인"),
+                mapOf("method" to "POST", "path" to "/api/auth/refresh", "description" to "토큰 갱신"),
+                mapOf("method" to "POST", "path" to "/api/auth/logout", "description" to "로그아웃"),
+                mapOf("method" to "POST", "path" to "/api/auth/logout-all", "description" to "모든 기기 로그아웃"),
+                mapOf("method" to "GET", "path" to "/api/auth/me", "description" to "현재 사용자 정보"),
+                mapOf("method" to "POST", "path" to "/api/auth/validate", "description" to "토큰 검증")
+            )
+        )
+
+        return ResponseEntity.ok(
+            ApiResponse.success("API가 정상 동작 중입니다", healthInfo)
+        )
+    }
+
+    /**
+     * Authorization 헤더에서 토큰 추출
+     */
+    private fun extractTokenFromHeader(authHeader: String): String {
+        val token = authHeader.removePrefix("Bearer ").trim()
+        if (token.isEmpty()) {
+            throw IllegalArgumentException("토큰이 제공되지 않았습니다")
+        }
+        return token
     }
 }
