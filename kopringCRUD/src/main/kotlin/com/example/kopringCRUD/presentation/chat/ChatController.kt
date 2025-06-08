@@ -26,7 +26,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
  */
 @RestController
 @RequestMapping("/api/chat")
-@CrossOrigin(origins = ["*"])
+@CrossOrigin(origins = ["http://localhost:3000", "http://localhost:8080"]) // 개발 환경용
 class ChatController(
     private val chatService: ChatService
 ) {

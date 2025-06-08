@@ -22,7 +22,7 @@ import java.time.LocalDateTime
  */
 @RestController
 @RequestMapping("/api/reports")
-@CrossOrigin(origins = ["*"])
+@CrossOrigin(origins = ["http://localhost:3000", "http://localhost:8080"]) // 개발 환경용
 class ReportController(
     private val reportService: ReportService
 ) {

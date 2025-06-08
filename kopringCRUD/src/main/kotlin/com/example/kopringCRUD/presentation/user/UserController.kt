@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.*
  */
 @RestController
 @RequestMapping("/api/users")
-@CrossOrigin(origins = ["*"])
+@CrossOrigin(origins = ["http://localhost:3000", "http://localhost:8080"]) // 개발 환경용
 class UserController(
     private val userService: UserService
 ) {
