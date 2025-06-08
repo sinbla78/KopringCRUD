@@ -1,51 +1,55 @@
+# 공통 설정
 spring:
   application:
     name: kotlin-spring-chat-app
-
-  profiles:
-    active: local  # 기본적으로 local 프로파일 사용
-
+  
+  # MySQL 데이터베이스 설정
+  datasource:
+    url: jdbc:mysql://localhost:3306/chatdb
+    username: root
+    password: password  # 실제 MySQL 비밀번호로 변경
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+  
+  # JPA/Hibernate 설정
   jpa:
     hibernate:
-      naming:
-        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+      ddl-auto: create-drop  # 개발용: 시작할 때마다 테이블 재생성
+      # ddl-auto: update     # 운영용: 스키마 변경사항만 적용
     show-sql: true
     properties:
       hibernate:
         format_sql: true
-        use_sql_comments: true
-
-  security:
-    user:
-      name: admin
-      password: admin
-      roles: ADMIN
-
-jwt:
-  secret: mySecretKeyForJWTTokenMustBeLongEnoughForHS512AlgorithmAndShouldBeAtLeast512BitsLongForSecurityPurposes
-  expiration: 86400000 # 24 hours
-
-server:
-  port: 8080
-  error:
-    include-message: always
-    include-binding-errors: always
-    include-stacktrace: on_param
-    include-exception: true
-    whitelabel:
-      enabled: false
-
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info,metrics
-  endpoint:
-    health:
-      show-details: always
-
-logging:
-  level:
-    com.example.kopringCRUD: DEBUG
-    org.springframework.web: DEBUG
-    org.hibernate.SQL: DEBUG
+        dialect: org.hibernate.dialect.MySQLDialect
+    open-in-view: false
+  
+  # 로깅 설정
+  logging:
+    level:
+      org.hibernate.SQL: DEBUG
+      org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+      com.example.kopringCRUD: DEBUG
+  
+  # JWT 설정
+  jwt:
+    secret: your-very-long-secret-key-here-make-it-at-least-256-bits-long-for-security
+    expiration: 86400000  # 24시간 (밀리초)
+  
+  # 서버 설정
+  server:
+    port: 8080
+    servlet:
+      context-path: /
+  
+  # 파일 업로드 설정
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+  
+  # 웹소켓 설정은 코드에서 관리

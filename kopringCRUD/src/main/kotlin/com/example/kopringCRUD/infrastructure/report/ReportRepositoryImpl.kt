@@ -210,10 +210,10 @@ interface JpaReportRepository : JpaRepository<Report, Long> {
     fun countByReportTargetReportedMessageId(messageId: Long): Long
 
     /**
-     * 평균 처리 시간 계산 (H2용)
+     * 평균 처리 시간 계산 (H2용) - 수정됨
      */
     @Query("""
-        SELECT AVG(DATEDIFF(HOUR, r.createdAt, r.handledAt)) 
+        SELECT AVG(TIMESTAMPDIFF(HOUR, r.createdAt, r.handledAt)) 
         FROM Report r 
         WHERE r.handledAt IS NOT NULL
     """)
